@@ -67,7 +67,7 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs text-gray-500 mb-1 block">你的名字</label>
-          <input id="hrName" type="text" placeholder="如：天雪"
+          <input id="hrName" type="text" placeholder="如：天雪" value="天雪"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
         </div>
         <div>
@@ -292,7 +292,11 @@ let interviewers = [];
 let slots = [];
 let selectedSlots = [];
 let history = JSON.parse(localStorage.getItem("interview_history") || "[]");
-let ejConfig = JSON.parse(localStorage.getItem("ej_config") || "{}");
+let ejConfig = JSON.parse(localStorage.getItem("ej_config") || JSON.stringify({
+  publicKey:  "9rQ8Pikgy7_-FK8fU",
+  serviceId:  "service_t3yliar",
+  templateId: "template_nipaf8o"
+}));
 
 const WEEKDAYS = ["周一","周二","周三","周四","周五","周六","周日"];
 

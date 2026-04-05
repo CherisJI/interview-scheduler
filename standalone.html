@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>自动约面系统 🗓️</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <style>
+    body { background: #f7f8fa; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .tag { display:inline-flex;align-items:center;gap:4px;background:#fff1f2;color:#ff2442;
+           border:1px solid #ffc9d0;border-radius:999px;padding:3px 12px;font-size:13px; }
+    .tag .rm { cursor:pointer;opacity:.6;font-size:14px; }
+    .tag .rm:hover { opacity:1; }
+    .slot-card { transition:all .15s;cursor:pointer;border:2px solid #e5e7eb;border-radius:12px;padding:14px 16px; }
+    .slot-card:hover { border-color:#ffc9d0;background:#fffafb; }
+    .slot-card.selected { border-color:#ff2442;background:#fff1f2; }
+    .step { display:none; }
+    .step.active { display:block; }
+    .step-dot { width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- 顶部 -->
+<header class="bg-white border-b border-gray-100 sticky top-0 z-20 shadow-sm">
+  <div class="max-w-3xl mx-auto px-6 h-14 flex items-center gap-3">
+    <span class="text-2xl">🗓️</span>
+    <span class="font-bold text-gray-800 text-lg">自动约面系统</span>
+    <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">单机版</span>
+    <div class="flex-1"></div>
+    <button onclick="resetAll()" class="text-xs text-gray-400 hover:text-gray-600">↺ 重置</button>
+  </div>
+</header>
+
+<!-- 步骤导航 -->
+<div class="max-w-3xl mx-auto px-6 pt-6 pb-2">
+  <div class="flex items-center gap-2">
+    <!-- step 1 -->
+    <div class="flex items-center gap-2 cursor-pointer" onclick="goStep(1)">
+      <div id="dot1" class="step-dot bg-red-500 text-white">1</div>
+      <span id="label1" class="text-sm font-medium text-red-500">填写信息</span>
+    </div>
+    <div class="flex-1 h-px bg-gray-200 mx-1"></div>
+    <!-- step 2 -->
+    <div class="flex items-center gap-2 cursor-pointer" onclick="goStep(2)">
+      <div id="dot2" class="step-dot bg-gray-200 text-gray-500">2</div>
+      <span id="label2" class="text-sm text-gray-400">选择时段</span>
+    </div>
+    <div class="flex-1 h-px bg-gray-200 mx-1"></div>
+    <!-- step 3 -->
+    <div class="flex items-center gap-2 cursor-pointer" onclick="goStep(3)">
+      <div id="dot3" class="step-dot bg-gray-200 text-gray-500">3</div>
+      <span id="label3" class="text-sm text-gray-400">发送邀请</span>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-3xl mx-auto px-6 py-5">
+
+  <!-- ══════════ STEP 1：填写信息 ══════════ -->
+  <div id="step1" class="step active space-y-4">
+
+    <!-- 你的信息（HR） -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">🙋 你的信息（发件人）</h3>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">你的名字</label>
+          <input id="hrName" type="text" placeholder="如：天雪"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">你的邮箱 <span class="text-red-400">*</span></label>
+          <input id="hrEmail" type="email" placeholder="jisiming@xiaohongshu.com"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 候选人信息 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">👤 候选人信息</h3>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">候选人姓名 <span class="text-red-400">*</span></label>
+          <input id="candidateName" type="text" placeholder="请输入候选人姓名"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">候选人邮箱 <span class="text-red-400">*</span></label>
+          <input id="candidateEmail" type="email" placeholder="candidate@example.com"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
+        </div>
+      </div>
+      <div class="mt-3">
+        <label class="text-xs text-gray-500 mb-1 block">招聘系统链接 <span class="text-gray-300">（选填，备注用）</span></label>
+        <input id="candidateLink" type="url" placeholder="https://hr.xiaohongshu.com/..."
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
+      </div>
+    </div>
+
+    <!-- 面试官 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">🧑‍💼 面试官</h3>
+      <div id="interviewerTags" class="flex flex-wrap gap-2 mb-3 min-h-[28px]"></div>
+      <input id="interviewerInput" type="text" placeholder="输入面试官姓名，按回车添加"
+        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
+      <p class="text-xs text-gray-400 mt-1.5">按 Enter 添加，支持多个</p>
+    </div>
+
+    <!-- 面试设置 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">⚙️ 面试设置</h3>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">时长</label>
+          <select id="durationMin" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300">
+            <option value="30">30 分钟</option>
+            <option value="45">45 分钟</option>
+            <option value="60" selected>60 分钟</option>
+            <option value="90">90 分钟</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">形式</label>
+          <select id="interviewType" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300">
+            <option value="online">线上</option>
+            <option value="offline">线下</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">时间范围</label>
+          <select id="timeRange" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300">
+            <option value="this_week">本周</option>
+            <option value="next_week" selected>下周</option>
+            <option value="two_weeks">未来两周</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="goToStep2()"
+      class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+      下一步：选择备选时段 →
+    </button>
+  </div>
+
+  <!-- ══════════ STEP 2：选择时段 ══════════ -->
+  <div id="step2" class="step space-y-4">
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="font-semibold text-gray-800">选择备选时段</h3>
+          <p class="text-xs text-gray-400 mt-0.5">勾选 2-4 个时段发给候选人选择（当前为模拟数据）</p>
+        </div>
+        <span id="selectedCount" class="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">已选 0 个</span>
+      </div>
+      <div id="slotsList" class="space-y-2"></div>
+    </div>
+
+    <div class="flex gap-3">
+      <button onclick="goStep(1)"
+        class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-3 rounded-xl transition-colors text-sm">
+        ← 上一步
+      </button>
+      <button onclick="goToStep3()"
+        class="flex-2 flex-grow-[2] bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+        下一步：发送邀请 →
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════ STEP 3：发送邀请 ══════════ -->
+  <div id="step3" class="step space-y-4">
+
+    <!-- 预览 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <h3 class="font-semibold text-gray-800 mb-4">📋 确认信息</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">发件人</span><span id="previewHr" class="text-gray-800 font-medium"></span></div>
+        <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">收件人</span><span id="previewCandidate" class="text-gray-800 font-medium"></span></div>
+        <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">面试官</span><span id="previewInterviewers" class="text-gray-800"></span></div>
+        <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">面试时长</span><span id="previewDuration" class="text-gray-800"></span></div>
+        <div class="pt-2 border-t border-gray-100">
+          <div class="text-gray-400 mb-2">备选时段：</div>
+          <div id="previewSlots" class="space-y-1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EmailJS 配置说明 -->
+    <div id="emailjsSetup" class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+      <h4 class="font-semibold text-amber-800 flex items-center gap-2 mb-3">
+        ✉️ 首次使用：配置邮件发送
+      </h4>
+      <p class="text-sm text-amber-700 mb-3">
+        单机版用 <strong>EmailJS</strong> 免费服务发邮件（无需服务器）。<br>
+        只需配置一次，之后每次直接用。
+      </p>
+      <div class="space-y-2 text-sm text-amber-800 bg-white rounded-lg p-4 mb-3">
+        <p class="font-medium mb-2">📌 三步配置（约 5 分钟）：</p>
+        <p>1️⃣ 注册 <a href="https://www.emailjs.com/" target="_blank" class="text-blue-500 underline">emailjs.com</a> 免费账号</p>
+        <p>2️⃣ 添加邮件服务（选 Gmail 或其他），获取 <strong>Service ID</strong></p>
+        <p>3️⃣ 创建邮件模板，获取 <strong>Template ID</strong>（模板变量见下方）</p>
+        <p>4️⃣ 在账号页面获取 <strong>Public Key</strong></p>
+      </div>
+
+      <div class="space-y-2 mb-3">
+        <div>
+          <label class="text-xs text-amber-700 mb-1 block">Public Key</label>
+          <input id="ejPublicKey" type="text" placeholder="如：xxxxxxxxxxxxxxxxxxx"
+            class="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-amber-400" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-amber-700 mb-1 block">Service ID</label>
+            <input id="ejServiceId" type="text" placeholder="如：service_xxxxxxx"
+              class="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-amber-400" />
+          </div>
+          <div>
+            <label class="text-xs text-amber-700 mb-1 block">Template ID</label>
+            <input id="ejTemplateId" type="text" placeholder="如：template_xxxxxxx"
+              class="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-amber-400" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 模板变量说明 -->
+      <details class="text-xs text-amber-700">
+        <summary class="cursor-pointer font-medium mb-1">📝 EmailJS 模板变量说明（点击展开）</summary>
+        <div class="mt-2 bg-white rounded-lg p-3 space-y-1 font-mono text-gray-600">
+          <p>{{to_email}}     — 候选人邮箱</p>
+          <p>{{to_name}}      — 候选人姓名</p>
+          <p>{{from_name}}    — HR 名字</p>
+          <p>{{from_email}}   — HR 邮箱</p>
+          <p>{{slots_text}}   — 备选时段列表</p>
+          <p>{{select_url}}   — 选时链接（暂为占位）</p>
+        </div>
+      </details>
+
+      <button onclick="saveEJConfig()"
+        class="w-full mt-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">
+        保存配置
+      </button>
+    </div>
+
+    <!-- 发送按钮（配置完后显示） -->
+    <div id="sendArea">
+      <button onclick="sendInvite()"
+        class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+        <span id="sendIcon">✉️</span>
+        <span id="sendText">发送面试邀请邮件</span>
+      </button>
+    </div>
+
+    <!-- 成功 -->
+    <div id="successCard" class="hidden bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+      <div class="text-4xl mb-3">🎉</div>
+      <p class="font-bold text-green-800 text-lg">邮件已发送！</p>
+      <p class="text-green-600 text-sm mt-2" id="successDetail"></p>
+      <div class="mt-4 bg-white rounded-xl p-4 text-left">
+        <p class="text-xs text-gray-500 mb-1">候选人会收到包含以下时段的邮件：</p>
+        <div id="successSlots" class="text-sm text-gray-700 space-y-1"></div>
+      </div>
+      <button onclick="resetAll()" class="mt-4 text-sm text-green-600 underline hover:text-green-800">
+        约下一个候选人 →
+      </button>
+    </div>
+
+    <!-- 本地记录 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-5">
+      <h4 class="font-semibold text-gray-700 mb-3 text-sm">📋 本次约面记录（本地保存）</h4>
+      <div id="localHistory" class="space-y-2 text-sm text-gray-500">
+        <p class="text-gray-300 text-xs">暂无记录</p>
+      </div>
+    </div>
+
+    <button onclick="goStep(2)"
+      class="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-3 rounded-xl transition-colors text-sm">
+      ← 修改时段
+    </button>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════
+// 状态
+// ══════════════════════════════════════
+let interviewers = [];
+let slots = [];
+let selectedSlots = [];
+let history = JSON.parse(localStorage.getItem("interview_history") || "[]");
+let ejConfig = JSON.parse(localStorage.getItem("ej_config") || "{}");
+
+const WEEKDAYS = ["周一","周二","周三","周四","周五","周六","周日"];
+
+function fmtSlot(slot) {
+  const s = new Date(slot.start), e = new Date(slot.end);
+  return `${s.getMonth()+1}月${s.getDate()}日（${WEEKDAYS[s.getDay()===0?6:s.getDay()-1]}）${pad(s.getHours())}:${pad(s.getMinutes())}-${pad(e.getHours())}:${pad(e.getMinutes())}`;
+}
+function pad(n){ return String(n).padStart(2,"0"); }
+
+// ══════════════════════════════════════
+// 步骤导航
+// ══════════════════════════════════════
+function goStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById("step"+i).classList.toggle("active", i===n);
+    const dot   = document.getElementById("dot"+i);
+    const label = document.getElementById("label"+i);
+    if (i === n) {
+      dot.className   = "step-dot bg-red-500 text-white";
+      label.className = "text-sm font-medium text-red-500";
+    } else if (i < n) {
+      dot.className   = "step-dot bg-green-400 text-white";
+      label.className = "text-sm text-green-500";
+    } else {
+      dot.className   = "step-dot bg-gray-200 text-gray-400";
+      label.className = "text-sm text-gray-400";
+    }
+  });
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function goToStep2() {
+  const hrEmail = document.getElementById("hrEmail").value.trim();
+  const cName   = document.getElementById("candidateName").value.trim();
+  const cEmail  = document.getElementById("candidateEmail").value.trim();
+  if (!hrEmail)  { alert("请填写你的邮箱"); return; }
+  if (!cName)    { alert("请填写候选人姓名"); return; }
+  if (!cEmail)   { alert("请填写候选人邮箱"); return; }
+  if (interviewers.length === 0) { alert("请至少添加一位面试官"); return; }
+  generateSlots();
+  goStep(2);
+}
+
+function goToStep3() {
+  if (selectedSlots.length === 0) { alert("请至少选择一个时段"); return; }
+  renderPreview();
+  loadEJConfig();
+  renderLocalHistory();
+  goStep(3);
+}
+
+// ══════════════════════════════════════
+// 面试官 Tag
+// ══════════════════════════════════════
+document.getElementById("interviewerInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const v = this.value.trim();
+    if (v && !interviewers.includes(v)) { interviewers.push(v); renderTags(); }
+    this.value = "";
+  }
+});
+
+function renderTags() {
+  document.getElementById("interviewerTags").innerHTML = interviewers.map((n,i) =>
+    `<span class="tag">${n}<span class="rm" onclick="rmInterviewer(${i})">✕</span></span>`
+  ).join("");
+}
+function rmInterviewer(i) { interviewers.splice(i,1); renderTags(); }
+
+// ══════════════════════════════════════
+// 生成 Mock 时段
+// ══════════════════════════════════════
+function generateSlots() {
+  const range = document.getElementById("timeRange").value;
+  const dur   = +document.getElementById("durationMin").value;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let start = new Date(today), end = new Date(today);
+  if (range === "this_week")  { end.setDate(today.getDate()+7); }
+  else if (range === "next_week") { start.setDate(today.getDate()+7); end.setDate(today.getDate()+14); }
+  else { end.setDate(today.getDate()+14); }
+
+  const times = [[10,0],[14,0],[15,30],[11,0],[16,0]];
+  slots = []; selectedSlots = [];
+  let d = new Date(start), idx = 0;
+  while (d < end && slots.length < 5) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) {
+      const [h,m] = times[idx % times.length];
+      const s = new Date(d); s.setHours(h,m,0,0);
+      const e = new Date(s); e.setMinutes(e.getMinutes()+dur);
+      slots.push({ start: s.toISOString(), end: e.toISOString() });
+      idx++;
+    }
+    d.setDate(d.getDate()+1);
+  }
+  renderSlotsList();
+}
+
+function renderSlotsList() {
+  document.getElementById("slotsList").innerHTML = slots.map((slot,i) => {
+    const sel = selectedSlots.includes(i);
+    return `
+      <div class="slot-card flex items-center gap-3 ${sel?"selected":""}" onclick="toggleSlot(${i})">
+        <div class="w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center
+                    ${sel?"border-red-400 bg-red-400":"border-gray-300"}">
+          ${sel?`<svg viewBox="0 0 10 8" fill="none" class="w-3 h-3"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>`:""}
+        </div>
+        <div class="flex-1">
+          <div class="font-medium text-gray-800 text-sm">${fmtSlot(slot)}</div>
+          <div class="text-xs text-gray-400 mt-0.5">面试官：${interviewers.join("、")}</div>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full ${sel?"bg-red-100 text-red-500":"bg-green-50 text-green-500 border border-green-200"}">
+          ${sel?"已选":"空闲"}
+        </span>
+      </div>`;
+  }).join("");
+  document.getElementById("selectedCount").textContent = `已选 ${selectedSlots.length} 个`;
+}
+
+function toggleSlot(i) {
+  const pos = selectedSlots.indexOf(i);
+  pos===-1 ? selectedSlots.push(i) : selectedSlots.splice(pos,1);
+  renderSlotsList();
+}
+
+// ══════════════════════════════════════
+// 预览
+// ══════════════════════════════════════
+function renderPreview() {
+  const hrName  = document.getElementById("hrName").value.trim() || "小红书招聘团队";
+  const hrEmail = document.getElementById("hrEmail").value.trim();
+  const cName   = document.getElementById("candidateName").value.trim();
+  const cEmail  = document.getElementById("candidateEmail").value.trim();
+  document.getElementById("previewHr").textContent          = `${hrName} <${hrEmail}>`;
+  document.getElementById("previewCandidate").textContent   = `${cName} <${cEmail}>`;
+  document.getElementById("previewInterviewers").textContent = interviewers.join("、");
+  document.getElementById("previewDuration").textContent    = document.getElementById("durationMin").value + " 分钟";
+  document.getElementById("previewSlots").innerHTML = selectedSlots.map(i =>
+    `<div class="text-gray-700 text-sm">🕐 ${fmtSlot(slots[i])}</div>`
+  ).join("");
+}
+
+// ══════════════════════════════════════
+// EmailJS 配置
+// ══════════════════════════════════════
+function loadEJConfig() {
+  if (ejConfig.publicKey && ejConfig.serviceId && ejConfig.templateId) {
+    document.getElementById("ejPublicKey").value  = ejConfig.publicKey;
+    document.getElementById("ejServiceId").value  = ejConfig.serviceId;
+    document.getElementById("ejTemplateId").value = ejConfig.templateId;
+    document.getElementById("emailjsSetup").classList.add("hidden");
+  } else {
+    document.getElementById("emailjsSetup").classList.remove("hidden");
+  }
+}
+
+function saveEJConfig() {
+  const pk = document.getElementById("ejPublicKey").value.trim();
+  const si = document.getElementById("ejServiceId").value.trim();
+  const ti = document.getElementById("ejTemplateId").value.trim();
+  if (!pk || !si || !ti) { alert("请填写全部 EmailJS 配置"); return; }
+  ejConfig = { publicKey: pk, serviceId: si, templateId: ti };
+  localStorage.setItem("ej_config", JSON.stringify(ejConfig));
+  document.getElementById("emailjsSetup").classList.add("hidden");
+  alert("✅ 配置已保存！下次打开无需重新填写。");
+}
+
+// ══════════════════════════════════════
+// 发送邮件
+// ══════════════════════════════════════
+async function sendInvite() {
+  if (!ejConfig.publicKey) { alert("请先完成 EmailJS 配置"); return; }
+
+  const hrName    = document.getElementById("hrName").value.trim() || "小红书招聘团队";
+  const hrEmail   = document.getElementById("hrEmail").value.trim();
+  const cName     = document.getElementById("candidateName").value.trim();
+  const cEmail    = document.getElementById("candidateEmail").value.trim();
+  const chosenSlots = selectedSlots.map(i => slots[i]);
+  const slotsText = chosenSlots.map(s => `🕐 ${fmtSlot(s)}`).join("\n");
+
+  document.getElementById("sendIcon").textContent = "⏳";
+  document.getElementById("sendText").textContent = "发送中...";
+
+  try {
+    emailjs.init(ejConfig.publicKey);
+    await emailjs.send(ejConfig.serviceId, ejConfig.templateId, {
+      to_email:   cEmail,
+      to_name:    cName,
+      from_name:  hrName,
+      from_email: hrEmail,
+      slots_text: slotsText,
+      select_url: "（请回复此邮件选择时间）",
+      duration:   document.getElementById("durationMin").value + "分钟",
+      interviewers: interviewers.join("、"),
+    });
+
+    // 保存本地记录
+    const record = {
+      id: Date.now(),
+      hrEmail, cName, cEmail,
+      interviewers: [...interviewers],
+      slots: chosenSlots.map(s => fmtSlot(s)),
+      sentAt: new Date().toLocaleString("zh-CN")
+    };
+    history.unshift(record);
+    localStorage.setItem("interview_history", JSON.stringify(history.slice(0,50)));
+
+    // 显示成功
+    document.getElementById("sendArea").classList.add("hidden");
+    document.getElementById("successCard").classList.remove("hidden");
+    document.getElementById("successDetail").textContent =
+      `邮件已发送至 ${cEmail}，请等候选人回复确认时间。`;
+    document.getElementById("successSlots").innerHTML = chosenSlots.map(s =>
+      `<div>🕐 ${fmtSlot(s)}</div>`
+    ).join("");
+
+  } catch(e) {
+    alert("发送失败：" + (e.text || e.message || JSON.stringify(e)));
+  }
+
+  document.getElementById("sendIcon").textContent = "✉️";
+  document.getElementById("sendText").textContent = "发送面试邀请邮件";
+}
+
+// ══════════════════════════════════════
+// 本地历史记录
+// ══════════════════════════════════════
+function renderLocalHistory() {
+  const el = document.getElementById("localHistory");
+  if (!history.length) {
+    el.innerHTML = '<p class="text-gray-300 text-xs">暂无记录</p>';
+    return;
+  }
+  el.innerHTML = history.slice(0,5).map(r => `
+    <div class="bg-gray-50 rounded-lg px-3 py-2">
+      <div class="flex items-center justify-between">
+        <span class="font-medium text-gray-700">${r.cName}</span>
+        <span class="text-xs text-gray-400">${r.sentAt}</span>
+      </div>
+      <div class="text-xs text-gray-400 mt-0.5">${r.cEmail} · ${r.slots.length} 个时段</div>
+    </div>
+  `).join("");
+}
+
+// ══════════════════════════════════════
+// 重置
+// ══════════════════════════════════════
+function resetAll() {
+  interviewers = []; slots = []; selectedSlots = [];
+  ["candidateName","candidateEmail","candidateLink","interviewerInput"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  renderTags();
+  document.getElementById("successCard").classList.add("hidden");
+  document.getElementById("sendArea").classList.remove("hidden");
+  goStep(1);
+}
+</script>
+</body>
+</html>

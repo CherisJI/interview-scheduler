@@ -598,7 +598,8 @@ function renderLocalHistory() {
         <span class="font-medium text-gray-700">${r.cName}</span>
         <span class="text-xs text-gray-400">${r.sentAt}</span>
       </div>
-      <div class="text-xs text-gray-400 mt-0.5">${r.cEmail} · ${r.slots.length} 个时段</div>
+      <div class="text-xs text-gray-400 mt-0.5">${r.jobTitle || ''} · 面试官：${(r.interviewers||[]).join('、')}</div>
+      <div class="text-xs text-gray-300 mt-0.5">${r.cEmail}</div>
     </div>
   `).join("");
 }

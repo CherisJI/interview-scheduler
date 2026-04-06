@@ -157,11 +157,15 @@
       <div class="flex items-center justify-between mb-5">
         <div>
           <h3 class="font-semibold text-gray-800">选择备选时段</h3>
-          <p class="text-xs text-gray-400 mt-0.5">勾选 2-4 个时段发给候选人选择（当前为模拟数据）</p>
+          <p id="slotsSubtitle" class="text-xs text-gray-400 mt-0.5">正在从红薯日历读取面试官真实空闲时间...</p>
         </div>
         <span id="selectedCount" class="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">已选 0 个</span>
       </div>
-      <div id="slotsList" class="space-y-2"></div>
+      <div id="slotsLoading" class="text-center py-8 text-gray-400 text-sm">
+        <div class="text-2xl mb-2">⏳</div>
+        正在查询面试官日历...
+      </div>
+      <div id="slotsList" class="space-y-2 hidden"></div>
     </div>
 
     <div class="flex gap-3">
@@ -342,8 +346,8 @@ function goToStep2() {
   if (!cEmail)   { alert("请填写候选人邮箱"); return; }
   if (!document.getElementById("jobTitle").value.trim()) { alert("请填写应聘岗位"); return; }
   if (interviewers.length === 0) { alert("请至少添加一位面试官"); return; }
-  generateSlots();
   goStep(2);
+  generateSlots();
 }
 
 function goToStep3() {
@@ -374,47 +378,54 @@ function renderTags() {
 function rmInterviewer(i) { interviewers.splice(i,1); renderTags(); }
 
 // ══════════════════════════════════════
-// 生成 Mock 时段
+// 查询红薯日历真实空闲时段
 // ══════════════════════════════════════
-function generateSlots() {
-  const range = document.getElementById("timeRange").value;
+const CALENDAR_API = "http://localhost:3099";
+
+async function generateSlots() {
   const dur   = +document.getElementById("durationMin").value;
-  const now   = new Date();
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  let start = new Date(today), end = new Date(today);
-  if (range === "this_week")  { end.setDate(today.getDate()+7); }
-  else if (range === "next_week") { start.setDate(today.getDate()+7); end.setDate(today.getDate()+14); }
-  else { end.setDate(today.getDate()+14); }
-
-  // 每天的候选时间段（模拟面试官空闲窗口）
-  // TODO: 替换为红薯日历 API 查询真实空闲
-  const dailyTimes = [[9,30],[10,30],[14,0],[15,0],[16,0],[17,0]];
+  const range = document.getElementById("timeRange").value;
+  const days  = range === "this_week" ? 7 : range === "next_week" ? 14 : 14;
+  const interviewer = interviewers[0]; // 以第一个面试官为准查日历
 
   slots = []; selectedSlots = [];
-  let d = new Date(start);
+  document.getElementById("slotsLoading").classList.remove("hidden");
+  document.getElementById("slotsList").classList.add("hidden");
+  document.getElementById("slotsSubtitle").textContent = `正在从红薯日历读取 ${interviewer} 的真实空闲时间...`;
 
-  // 优先找最近有空闲的工作日，同一天列出所有空闲时段，最多展示 3 天 / 共 6 个时段
-  let daysFound = 0;
-  while (d < end && slots.length < 6 && daysFound < 3) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) { // 跳过周末
-      const daySlots = [];
-      for (const [h, m] of dailyTimes) {
-        const s = new Date(d); s.setHours(h, m, 0, 0);
-        const e = new Date(s); e.setMinutes(e.getMinutes() + dur);
-        // 跳过今天已经过去的时间（当天未来时段才展示）
-        if (s > now) {
-          daySlots.push({ start: s.toISOString(), end: e.toISOString() });
+  try {
+    const resp = await fetch(`${CALENDAR_API}/free-slots?interviewer=${encodeURIComponent(interviewer)}&days=${days}&duration=${dur}`);
+    const data = await resp.json();
+
+    if (!resp.ok) throw new Error(data.error || "查询失败");
+
+    slots = data.freeSlots || [];
+    document.getElementById("slotsSubtitle").textContent =
+      `✅ 已读取 ${data.interviewer} 的真实空闲时间，共 ${slots.length} 个时段`;
+
+  } catch(e) {
+    // 降级：用模拟数据
+    console.warn("日历API不可用，使用模拟数据:", e.message);
+    document.getElementById("slotsSubtitle").textContent = "⚠️ 日历查询失败，显示模拟时段";
+    const now = new Date();
+    const dailyTimes = [[10,30],[11,0],[14,0],[15,0],[16,0],[17,0],[19,0],[20,0]];
+    let d = new Date(); d.setHours(0,0,0,0);
+    let daysFound = 0;
+    while (slots.length < 20 && daysFound < days) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) {
+        for (const [h, m] of dailyTimes) {
+          const s = new Date(d); s.setHours(h, m, 0, 0);
+          const e = new Date(s); e.setMinutes(e.getMinutes() + dur);
+          if (s > now) slots.push({ start: s.toISOString(), end: e.toISOString() });
         }
-      }
-      if (daySlots.length > 0) {
-        // 每天最多取 3 个时段，加入总列表
-        slots.push(...daySlots.slice(0, 3));
         daysFound++;
       }
     }
-    d.setDate(d.getDate() + 1);
   }
+
+  document.getElementById("slotsLoading").classList.add("hidden");
+  document.getElementById("slotsList").classList.remove("hidden");
   renderSlotsList();
 }
 

@@ -558,7 +558,7 @@ async function sendInvite() {
         ejtid: ejConfig.templateId,
       });
       const link = `${baseUrl}?${params.toString()}`;
-      return `✅ ${fmtSlot(slot)}\n👉 确认此时间：${link}`;
+      return `✅ ${fmtSlot(slot)}\n👉 <a href="${link}">确认此时间</a>`;
     }).join("\n\n");
 
     // 1️⃣ 发邀请邮件给候选人（含时段列表+每个时段确认链接）

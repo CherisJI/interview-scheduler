@@ -15,7 +15,7 @@ function searchUser(name) {
   const users = data?.subscribeUserVoList || data?.result?.users || [];
   if (!users.length) return null;
   const u = users[0];
-  return { userId: u.userId, userName: u.name || u.userName };
+  return { userId: u.userId || u.userID, userName: u.userName || u.name };
 }
 
 // 查询用户日程
@@ -33,29 +33,32 @@ function calcFreeSlots(schedules, beginDate, endDate, durationMin = 30) {
   const workStart = 10 * 60 + 30; // 10:30 in minutes
   const workEnd = 21 * 60;         // 21:00 in minutes
 
-  // 遍历每一天
+  // 遍历每一天（以北京时间为准）
   let d = new Date(beginDate);
   const end = new Date(endDate);
   while (d <= end) {
-    const dayOfWeek = d.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 跳过周末
-      const dateStr = d.toISOString().split('T')[0];
+    // 取北京时间的日期字符串 YYYY-MM-DD
+    const bjOffset = 8 * 60 * 60 * 1000;
+    const bjDate = new Date(d.getTime() + bjOffset);
+    const dateStr = bjDate.toISOString().split('T')[0]; // e.g. "2026-04-07"
+    const dayOfWeek = bjDate.getUTCDay();
 
-      // 找这一天的已有日程
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 跳过周末
+      // 找这一天的已有日程（schedules的startTime格式为 "2026-04-07 10:00:00" 北京时间）
       const dayBusy = (schedules || []).filter(s => {
         return s.startTime && s.startTime.startsWith(dateStr);
       }).map(s => ({
-        start: new Date(s.startTime),
-        end: new Date(s.endTime)
+        // 直接把 "2026-04-07 10:00:00" 当北京时间解析
+        start: new Date(s.startTime.replace(' ', 'T') + '+08:00'),
+        end: new Date(s.endTime.replace(' ', 'T') + '+08:00')
       }));
 
-      // 从10:30开始，每30分钟一个时段
+      // 从10:30开始，每30分钟一个时段（用北京时间构造）
       let t = workStart;
       while (t + durationMin <= workEnd) {
-        const slotStart = new Date(d);
-        slotStart.setHours(Math.floor(t / 60), t % 60, 0, 0);
-        const slotEnd = new Date(slotStart);
-        slotEnd.setMinutes(slotEnd.getMinutes() + durationMin);
+        // 构造北京时间的时段
+        const slotStart = new Date(`${dateStr}T${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}:00+08:00`);
+        const slotEnd = new Date(slotStart.getTime() + durationMin * 60 * 1000);
 
         // 检查是否与已有日程冲突
         const conflict = dayBusy.some(b => slotStart < b.end && slotEnd > b.start);

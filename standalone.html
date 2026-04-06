@@ -94,6 +94,11 @@
         </div>
       </div>
       <div class="mt-3">
+        <label class="text-xs text-gray-500 mb-1 block">应聘岗位 <span class="text-red-400">*</span></label>
+        <input id="jobTitle" type="text" placeholder="如：商业化KA销售"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
+      </div>
+      <div class="mt-3">
         <label class="text-xs text-gray-500 mb-1 block">招聘系统链接 <span class="text-gray-300">（选填，备注用）</span></label>
         <input id="candidateLink" type="url" placeholder="https://hr.xiaohongshu.com/..."
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-300" />
@@ -180,6 +185,7 @@
       <div class="space-y-2 text-sm">
         <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">发件人</span><span id="previewHr" class="text-gray-800 font-medium"></span></div>
         <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">收件人</span><span id="previewCandidate" class="text-gray-800 font-medium"></span></div>
+        <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">应聘岗位</span><span id="previewJob" class="text-gray-800 font-medium"></span></div>
         <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">面试官</span><span id="previewInterviewers" class="text-gray-800"></span></div>
         <div class="flex gap-2"><span class="text-gray-400 w-20 flex-shrink-0">面试时长</span><span id="previewDuration" class="text-gray-800"></span></div>
         <div class="pt-2 border-t border-gray-100">
@@ -335,6 +341,7 @@ function goToStep2() {
   if (!hrEmail)  { alert("请填写你的邮箱"); return; }
   if (!cName)    { alert("请填写候选人姓名"); return; }
   if (!cEmail)   { alert("请填写候选人邮箱"); return; }
+  if (!document.getElementById("jobTitle").value.trim()) { alert("请填写应聘岗位"); return; }
   if (interviewers.length === 0) { alert("请至少添加一位面试官"); return; }
   generateSlots();
   goStep(2);
@@ -472,8 +479,10 @@ function renderPreview() {
   const hrEmail = document.getElementById("hrEmail").value.trim();
   const cName   = document.getElementById("candidateName").value.trim();
   const cEmail  = document.getElementById("candidateEmail").value.trim();
+  const jobTitle = document.getElementById("jobTitle").value.trim();
   document.getElementById("previewHr").textContent          = `${hrName} <${hrEmail}>`;
   document.getElementById("previewCandidate").textContent   = `${cName} <${cEmail}>`;
+  document.getElementById("previewJob").textContent         = jobTitle;
   document.getElementById("previewInterviewers").textContent = interviewers.join("、");
   document.getElementById("previewDuration").textContent    = document.getElementById("durationMin").value + " 分钟";
   document.getElementById("previewSlots").innerHTML = selectedSlots.map(i =>
@@ -516,22 +525,37 @@ async function sendInvite() {
   const hrEmail   = document.getElementById("hrEmail").value.trim();
   const cName     = document.getElementById("candidateName").value.trim();
   const cEmail    = document.getElementById("candidateEmail").value.trim();
-  const chosenSlots = selectedSlots.map(i => slots[i]);
-  const slotsText = chosenSlots.map(s => `🕐 ${fmtSlot(s)}`).join("\n");
+  const jobTitle  = document.getElementById("jobTitle").value.trim();
+  const calendlyUrl = "https://calendly.com/clement07/30min";
 
   document.getElementById("sendIcon").textContent = "⏳";
   document.getElementById("sendText").textContent = "发送中...";
 
   try {
     emailjs.init(ejConfig.publicKey);
+
+    // 1️⃣ 发邀请邮件给候选人（含 Calendly 链接）
     await emailjs.send(ejConfig.serviceId, ejConfig.templateId, {
-      to_email:   cEmail,
-      to_name:    cName,
-      from_name:  hrName,
-      from_email: hrEmail,
-      slots_text: slotsText,
-      select_url: "（请回复此邮件选择时间）",
-      duration:   document.getElementById("durationMin").value + "分钟",
+      to_email:     cEmail,
+      to_name:      cName,
+      from_name:    hrName,
+      from_email:   hrEmail,
+      slots_text:   calendlyUrl,
+      select_url:   calendlyUrl,
+      duration:     document.getElementById("durationMin").value + "分钟",
+      interviewers: interviewers.join("、"),
+    });
+
+    // 2️⃣ 同时发一封记录邮件给HR自己（供AI监控匹配用）
+    const recordSubject = `【约面记录】${cName} - ${jobTitle} - 面试官：${interviewers.join("、")}`;
+    await emailjs.send(ejConfig.serviceId, ejConfig.templateId, {
+      to_email:     hrEmail,
+      to_name:      "天雪（AI约面记录）",
+      from_name:    "约面系统",
+      from_email:   hrEmail,
+      slots_text:   `【AI约面记录】\n候选人：${cName}\n候选人邮箱：${cEmail}\n应聘岗位：${jobTitle}\n面试官：${interviewers.join("、")}\n发送时间：${new Date().toLocaleString("zh-CN")}\nCalendly链接：${calendlyUrl}`,
+      select_url:   calendlyUrl,
+      duration:     document.getElementById("durationMin").value + "分钟",
       interviewers: interviewers.join("、"),
     });
 
@@ -539,8 +563,9 @@ async function sendInvite() {
     const record = {
       id: Date.now(),
       hrEmail, cName, cEmail,
+      jobTitle,
       interviewers: [...interviewers],
-      slots: chosenSlots.map(s => fmtSlot(s)),
+      calendlyUrl,
       sentAt: new Date().toLocaleString("zh-CN")
     };
     history.unshift(record);
@@ -550,10 +575,10 @@ async function sendInvite() {
     document.getElementById("sendArea").classList.add("hidden");
     document.getElementById("successCard").classList.remove("hidden");
     document.getElementById("successDetail").textContent =
-      `邮件已发送至 ${cEmail}，请等候选人回复确认时间。`;
-    document.getElementById("successSlots").innerHTML = chosenSlots.map(s =>
-      `<div>🕐 ${fmtSlot(s)}</div>`
-    ).join("");
+      `邀请邮件已发送至 ${cEmail}，候选人点击链接即可自选时间，AI将自动处理后续约面。`;
+    document.getElementById("successSlots").innerHTML =
+      `<div>🔗 Calendly选时链接：<a href="${calendlyUrl}" target="_blank" class="text-blue-500 underline">${calendlyUrl}</a></div>
+       <div class="mt-1 text-xs text-gray-400">候选人确认后，AI将自动录入招聘系统 ✅</div>`;
 
   } catch(e) {
     alert("发送失败：" + (e.text || e.message || JSON.stringify(e)));
@@ -578,7 +603,8 @@ function renderLocalHistory() {
         <span class="font-medium text-gray-700">${r.cName}</span>
         <span class="text-xs text-gray-400">${r.sentAt}</span>
       </div>
-      <div class="text-xs text-gray-400 mt-0.5">${r.cEmail} · ${r.slots.length} 个时段</div>
+      <div class="text-xs text-gray-400 mt-0.5">${r.jobTitle || ''} · 面试官：${(r.interviewers||[]).join('、')}</div>
+      <div class="text-xs text-gray-300 mt-0.5">${r.cEmail}</div>
     </div>
   `).join("");
 }

@@ -380,5 +380,15 @@ def list_interviews():
         result.append(item)
     return jsonify(result)
 
+@app.route("/dl")
+def download_standalone():
+    from flask import send_file
+    return send_file(
+        "/home/node/.openclaw/workspace/interview-scheduler/standalone.html",
+        as_attachment=True,
+        download_name="interview.html",
+        mimetype="text/html; charset=utf-8"
+    )
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=False)

@@ -28,50 +28,43 @@ function querySchedules(userId, beginTime, endTime) {
 }
 
 // 计算空闲时段（10:30-21:00，30分钟间隔）
-function calcFreeSlots(schedules, beginDate, endDate, durationMin = 30) {
+// schedules 里 startTime/endTime 格式为 "2026-04-07 11:00:00+08:00"
+function calcFreeSlots(schedules, days, durationMin = 30) {
   const freeSlots = [];
-  const workStart = 10 * 60 + 30; // 10:30 in minutes
-  const workEnd = 21 * 60;         // 21:00 in minutes
+  const now = new Date();
 
-  // 遍历每一天（以北京时间为准）
-  let d = new Date(beginDate);
-  const end = new Date(endDate);
-  while (d <= end) {
-    // 取北京时间的日期字符串 YYYY-MM-DD
-    const bjOffset = 8 * 60 * 60 * 1000;
-    const bjDate = new Date(d.getTime() + bjOffset);
-    const dateStr = bjDate.toISOString().split('T')[0]; // e.g. "2026-04-07"
-    const dayOfWeek = bjDate.getUTCDay();
+  // 构建日程的忙碌时间数组（全部转为 Date 对象）
+  const busyTimes = (schedules || []).map(s => ({
+    start: new Date(s.startTime.replace(' ', 'T')),
+    end:   new Date(s.endTime.replace(' ', 'T'))
+  }));
 
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 跳过周末
-      // 找这一天的已有日程（schedules的startTime格式为 "2026-04-07 10:00:00" 北京时间）
-      const dayBusy = (schedules || []).filter(s => {
-        return s.startTime && s.startTime.startsWith(dateStr);
-      }).map(s => ({
-        // 直接把 "2026-04-07 10:00:00" 当北京时间解析
-        start: new Date(s.startTime.replace(' ', 'T') + '+08:00'),
-        end: new Date(s.endTime.replace(' ', 'T') + '+08:00')
-      }));
+  // 遍历未来 days 天（从今天开始）
+  for (let i = 0; i <= days; i++) {
+    // 构造北京时间当天日期字符串
+    const bjNow = new Date(now.getTime() + 8 * 3600 * 1000);
+    const bjDay = new Date(bjNow);
+    bjDay.setUTCDate(bjDay.getUTCDate() + i);
+    const dateStr = bjDay.toISOString().split('T')[0]; // "2026-04-07"
+    const dow = bjDay.getUTCDay(); // 0=Sun, 6=Sat
+    if (dow === 0 || dow === 6) continue; // 跳过周末
 
-      // 从10:30开始，每30分钟一个时段（用北京时间构造）
-      let t = workStart;
-      while (t + durationMin <= workEnd) {
-        // 构造北京时间的时段
-        const slotStart = new Date(`${dateStr}T${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}:00+08:00`);
-        const slotEnd = new Date(slotStart.getTime() + durationMin * 60 * 1000);
+    // 从 10:30 到 21:00，每 30 分钟一档
+    for (let t = 10 * 60 + 30; t + durationMin <= 21 * 60; t += 30) {
+      const hh = String(Math.floor(t / 60)).padStart(2, '0');
+      const mm = String(t % 60).padStart(2, '0');
+      const slotStart = new Date(`${dateStr}T${hh}:${mm}:00+08:00`);
+      const slotEnd   = new Date(slotStart.getTime() + durationMin * 60 * 1000);
 
-        // 检查是否与已有日程冲突
-        const conflict = dayBusy.some(b => slotStart < b.end && slotEnd > b.start);
-        if (!conflict && slotStart > new Date()) {
-          freeSlots.push({
-            start: slotStart.toISOString(),
-            end: slotEnd.toISOString()
-          });
-        }
-        t += 30;
+      // 跳过已过去的时段
+      if (slotStart <= now) continue;
+
+      // 检查冲突
+      const conflict = busyTimes.some(b => slotStart < b.end && slotEnd > b.start);
+      if (!conflict) {
+        freeSlots.push({ start: slotStart.toISOString(), end: slotEnd.toISOString() });
       }
     }
-    d.setDate(d.getDate() + 1);
   }
   return freeSlots;
 }
@@ -108,21 +101,25 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      // 查日程
+      // 查日程（用正确的北京时间格式）
       const now = new Date();
-      const beginTime = now.toISOString().replace('Z', '+08:00').replace(/\.\d+/, '');
+      const toBeijingISO = (d) => {
+        const bj = new Date(d.getTime() + 8 * 3600 * 1000);
+        return bj.toISOString().replace('Z', '+08:00').replace(/\.\d+/, '');
+      };
+      const beginTime = toBeijingISO(now);
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + days);
-      const endTime = endDate.toISOString().replace('Z', '+08:00').replace(/\.\d+/, '');
+      const endTime = toBeijingISO(endDate);
 
       const data = querySchedules(user.userId, beginTime, endTime);
       const schedules = (data?.events || []).map(e => ({
-        startTime: e.start.replace(' ', 'T') + '+08:00',
-        endTime: e.end.replace(' ', 'T') + '+08:00'
+        startTime: e.start + '+08:00',
+        endTime:   e.end   + '+08:00'
       }));
 
       // 计算空闲
-      const freeSlots = calcFreeSlots(schedules, now, endDate, duration);
+      const freeSlots = calcFreeSlots(schedules, days, duration);
 
       res.writeHead(200);
       res.end(JSON.stringify({

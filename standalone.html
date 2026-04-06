@@ -531,14 +531,33 @@ async function sendInvite() {
   try {
     emailjs.init(ejConfig.publicKey);
 
-    // 1️⃣ 发邀请邮件给候选人（含 Calendly 链接）
+    // 生成每个时段的确认链接（候选人点击即确认）
+    const baseUrl = "https://cherisji.github.io/interview-scheduler/confirm.html";
+    const chosenSlots = selectedSlots.map(i => slots[i]);
+    const slotsWithLinks = chosenSlots.map((slot, idx) => {
+      const params = new URLSearchParams({
+        candidate: cName,
+        email: cEmail,
+        job: jobTitle,
+        interviewers: interviewers.join("、"),
+        time: fmtSlot(slot),
+        hr: hrEmail,
+        ejpk: ejConfig.publicKey,
+        ejsid: ejConfig.serviceId,
+        ejtid: ejConfig.templateId,
+      });
+      const link = `${baseUrl}?${params.toString()}`;
+      return `✅ ${fmtSlot(slot)}\n👉 确认此时间：${link}`;
+    }).join("\n\n");
+
+    // 1️⃣ 发邀请邮件给候选人（含时段列表+每个时段确认链接）
     await emailjs.send(ejConfig.serviceId, ejConfig.templateId, {
       to_email:     cEmail,
       to_name:      cName,
       from_name:    hrName,
       from_email:   hrEmail,
-      slots_text:   calendlyUrl,
-      select_url:   calendlyUrl,
+      slots_text:   slotsWithLinks,
+      select_url:   "",
       duration:     document.getElementById("durationMin").value + "分钟",
       interviewers: interviewers.join("、"),
     });
@@ -549,8 +568,8 @@ async function sendInvite() {
       to_name:      "天雪（AI约面记录）",
       from_name:    "约面系统",
       from_email:   hrEmail,
-      slots_text:   `【AI约面记录】\n候选人：${cName}\n候选人邮箱：${cEmail}\n应聘岗位：${jobTitle}\n面试官：${interviewers.join("、")}\n发送时间：${new Date().toLocaleString("zh-CN")}\nCalendly链接：${calendlyUrl}`,
-      select_url:   calendlyUrl,
+      slots_text:   `【AI约面记录】\n候选人：${cName}\n候选人邮箱：${cEmail}\n应聘岗位：${jobTitle}\n面试官：${interviewers.join("、")}\n发送时间：${new Date().toLocaleString("zh-CN")}`,
+      select_url:   "",
       duration:     document.getElementById("durationMin").value + "分钟",
       interviewers: interviewers.join("、"),
     });

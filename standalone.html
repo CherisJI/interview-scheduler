@@ -380,7 +380,7 @@ function rmInterviewer(i) { interviewers.splice(i,1); renderTags(); }
 // ══════════════════════════════════════
 // 查询红薯日历真实空闲时段
 // ══════════════════════════════════════
-const CALENDAR_API = "http://localhost:3099";
+const CALENDAR_API = "http://10.40.112.243:3099";
 
 async function generateSlots() {
   const dur   = +document.getElementById("durationMin").value;

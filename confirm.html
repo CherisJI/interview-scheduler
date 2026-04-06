@@ -3,108 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>面试时间确认</title>
+  <title>面试时间确认 - 小红书</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
-<body class="min-h-screen bg-gray-50 flex items-center justify-center">
-  <div class="max-w-md w-full mx-4">
+<body class="min-h-screen bg-gray-50 flex items-center justify-center p-4" style="font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+  <div class="max-w-sm w-full">
 
-    <!-- 加载中 -->
-    <div id="loading" class="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+    <div id="loading" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
       <div class="text-4xl mb-4">⏳</div>
-      <p class="text-gray-600">正在确认您的面试时间...</p>
+      <p class="text-gray-500 text-sm">正在确认您的面试时间...</p>
     </div>
 
-    <!-- 确认成功 -->
-    <div id="success" class="hidden bg-white rounded-2xl border border-green-200 p-8 text-center">
+    <div id="success" class="hidden bg-white rounded-2xl shadow-sm border border-green-100 p-8 text-center">
       <div class="text-5xl mb-4">🎉</div>
       <h1 class="text-xl font-bold text-gray-800 mb-2">面试时间已确认！</h1>
-      <p class="text-gray-500 text-sm mb-5">我们已收到您的确认，HR将尽快安排面试详情。</p>
-      <div id="confirmDetail" class="bg-green-50 rounded-xl p-4 text-left text-sm space-y-2 mb-5"></div>
-      <p class="text-xs text-gray-400">如有疑问请联系 HR：<span id="hrEmailDisplay"></span></p>
+      <p class="text-gray-400 text-sm mb-5">HR 将尽快发送面试详情，请注意查收邮件。</p>
+      <div id="detail" class="bg-gray-50 rounded-xl p-4 text-left text-sm space-y-2.5 mb-5"></div>
+      <p class="text-xs text-gray-300">如有问题请联系：<span id="hrEmail" class="text-gray-400"></span></p>
     </div>
 
-    <!-- 已确认过 -->
-    <div id="alreadyDone" class="hidden bg-white rounded-2xl border border-yellow-200 p-8 text-center">
+    <div id="done" class="hidden bg-white rounded-2xl shadow-sm border border-yellow-100 p-8 text-center">
       <div class="text-5xl mb-4">✅</div>
-      <h1 class="text-xl font-bold text-gray-800 mb-2">您已经确认过了</h1>
-      <p class="text-gray-500 text-sm">此面试时间已经确认，无需重复操作。</p>
+      <h1 class="text-xl font-bold text-gray-800 mb-2">已确认过了</h1>
+      <p class="text-gray-400 text-sm">此时间已确认，无需重复操作。</p>
     </div>
 
-    <!-- 失败 -->
-    <div id="error" class="hidden bg-white rounded-2xl border border-red-200 p-8 text-center">
+    <div id="err" class="hidden bg-white rounded-2xl shadow-sm border border-red-100 p-8 text-center">
       <div class="text-5xl mb-4">😕</div>
       <h1 class="text-xl font-bold text-gray-800 mb-2">确认失败</h1>
-      <p id="errorMsg" class="text-gray-500 text-sm">请联系 HR 手动确认时间。</p>
+      <p id="errMsg" class="text-gray-400 text-sm mb-4">请直接回复邮件告知 HR 您选择的时间。</p>
+      <button onclick="doConfirm()" class="text-sm text-red-500 underline">重试</button>
     </div>
 
   </div>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const candidate   = params.get("candidate") || "";
-    const email       = params.get("email") || "";
-    const job         = params.get("job") || "";
-    const interviewers = params.get("interviewers") || "";
-    const time        = params.get("time") || "";
-    const hr          = params.get("hr") || "";
-    const ejpk        = params.get("ejpk") || "";
-    const ejsid       = params.get("ejsid") || "";
-    const ejtid       = params.get("ejtid") || "";
+<script>
+const p = new URLSearchParams(location.search);
+const candidate    = p.get('candidate') || '';
+const email        = p.get('email') || '';
+const job          = p.get('job') || '';
+const interviewers = p.get('interviewers') || '';
+const time         = p.get('time') || '';
+const hr           = p.get('hr') || '';
+const ejpk         = p.get('ejpk') || '';
+const ejsid        = p.get('ejsid') || '';
+const ejtid        = p.get('ejtid') || '';
 
-    // 防重复确认（localStorage）
-    const confirmKey = `confirmed_${candidate}_${time}`;
+document.getElementById('hrEmail').textContent = hr;
 
-    document.getElementById("hrEmailDisplay").textContent = hr;
+const key = `confirmed_${candidate}_${time}`.replace(/\s+/g,'_');
 
-    async function confirm() {
-      if (localStorage.getItem(confirmKey)) {
-        show("alreadyDone");
-        return;
-      }
+async function doConfirm() {
+  show('loading');
+  if (localStorage.getItem(key)) { show('done'); return; }
 
-      try {
-        emailjs.init(ejpk);
+  try {
+    emailjs.init(ejpk);
+    await emailjs.send(ejsid, ejtid, {
+      to_email:     hr,
+      to_name:      '天雪',
+      from_name:    candidate,
+      from_email:   email,
+      slots_text:   `【候选人已确认时间】\n\n候选人：${candidate}\n候选人邮箱：${email}\n应聘岗位：${job}\n面试官：${interviewers}\n✅ 确认时间：${time}\n确认时刻：${new Date().toLocaleString('zh-CN')}`,
+      select_url:   '',
+      duration:     '',
+      interviewers: interviewers,
+    });
+    localStorage.setItem(key, '1');
+    document.getElementById('detail').innerHTML = `
+      <div class="flex gap-3"><span class="text-gray-400 w-14 shrink-0">姓名</span><span class="font-medium text-gray-800">${candidate}</span></div>
+      <div class="flex gap-3"><span class="text-gray-400 w-14 shrink-0">岗位</span><span class="text-gray-800">${job}</span></div>
+      <div class="flex gap-3"><span class="text-gray-400 w-14 shrink-0">时间</span><span class="font-semibold text-green-600">${time}</span></div>
+      <div class="flex gap-3"><span class="text-gray-400 w-14 shrink-0">面试官</span><span class="text-gray-800">${interviewers}</span></div>
+    `;
+    show('success');
+  } catch(e) {
+    document.getElementById('errMsg').textContent = '发送失败：' + (e.text || e.message || '未知错误') + '，请直接回复邮件联系 HR。';
+    show('err');
+  }
+}
 
-        // 发确认邮件给HR（AI监控这封邮件）
-        await emailjs.send(ejsid, ejtid, {
-          to_email:     hr,
-          to_name:      "天雪",
-          from_name:    candidate,
-          from_email:   email,
-          slots_text:   `【候选人已确认时间】\n候选人：${candidate}\n候选人邮箱：${email}\n应聘岗位：${job}\n面试官：${interviewers}\n确认时间：${time}\n确认时刻：${new Date().toLocaleString("zh-CN")}`,
-          select_url:   "",
-          duration:     "",
-          interviewers: interviewers,
-        });
+function show(id) {
+  ['loading','success','done','err'].forEach(i =>
+    document.getElementById(i).classList.toggle('hidden', i !== id)
+  );
+}
 
-        // 标记已确认
-        localStorage.setItem(confirmKey, "1");
-
-        // 显示成功
-        document.getElementById("confirmDetail").innerHTML = `
-          <div class="flex gap-2"><span class="text-gray-400 w-16">姓名</span><span class="font-medium text-gray-800">${candidate}</span></div>
-          <div class="flex gap-2"><span class="text-gray-400 w-16">岗位</span><span class="text-gray-800">${job}</span></div>
-          <div class="flex gap-2"><span class="text-gray-400 w-16">时间</span><span class="font-medium text-green-700">${time}</span></div>
-          <div class="flex gap-2"><span class="text-gray-400 w-16">面试官</span><span class="text-gray-800">${interviewers}</span></div>
-        `;
-        show("success");
-
-      } catch(e) {
-        document.getElementById("errorMsg").textContent = "发送失败：" + (e.text || e.message || "未知错误") + "，请联系 HR。";
-        show("error");
-      }
-    }
-
-    function show(id) {
-      ["loading","success","alreadyDone","error"].forEach(i => {
-        document.getElementById(i).classList.toggle("hidden", i !== id);
-      });
-    }
-
-    // 自动触发确认
-    confirm();
-  </script>
+doConfirm();
+</script>
 </body>
 </html>
